@@ -1,5 +1,247 @@
 <html>
-<body>
-<h2>Test</h2>
-</body>
+  <head>
+    <style>
+      body {
+          font-family: Arial, sans-serif;
+          background-color: #f4f4f4;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          margin: 0;
+      }
+
+      .login-container {
+          background-color: white;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          width: 300px;
+      }
+
+      h2 {
+          text-align: center;
+          color: #333;
+      }
+
+      .input-group {
+          margin-bottom: 15px;
+      }
+
+      .input-group label {
+          font-size: 14px;
+          color: #333;
+          margin-bottom: 5px;
+          display: block;
+      }
+
+      .input-group input {
+          width: 100%;
+          padding: 10px;
+          font-size: 16px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+      }
+
+      .btn {
+          width: 100%;
+          padding: 10px;
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 16px;
+          cursor: pointer;
+      }
+
+      .btn:hover {
+          background-color: #45a049;
+      }
+
+
+      /* Table Styles */
+      #tableContainer {
+          width: 80%;
+          margin-top: 20px;
+          background-color: white;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          display: none;
+      }
+
+      #spreadsheet {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+          font-size: 14px;
+      }
+
+      #spreadsheet th, #spreadsheet td {
+          padding: 10px;
+          border: 1px solid #ddd;
+          text-align: left;
+      }
+
+      #spreadsheet th {
+          background-color: #f1f1f1;
+          font-weight: bold;
+      }
+
+      #spreadsheet tr:hover {
+          background-color: #f9f9f9;
+      }
+
+      #spreadsheet td[contenteditable="true"]:empty:before {
+          content: "Click to edit";
+          color: #888;
+          font-style: italic;
+      }
+
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <div class="login-container" id="lc">
+      <h2>Zổ</h2>
+      <form>
+          <div class="input-group">
+              <label for="username">Username</label>
+              <input type="text" id="username" name="username" required>
+          </div>
+          <div class="input-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" required>
+          </div>
+          <button class="btn" onclick="login()" type="button">Login</button>
+      </form>
+      <div id="errorMessage" class="error"></div>
+    </div>
+
+    <div id="tableContainer" style="display: none;">
+      <h2>Data</h2>
+      <table id="spreadsheet">
+        <thead>
+          <tr>
+              <th>THỜI GIAN</th>
+              <th>NHÂN VIÊN</th>
+              <th>TỔNG GIỜ</th>
+              <th>BẬC LƯƠNG (VND/h)</th>
+              <th>PHẠT ĐI MUỘN</th>
+              <th>THƯỞNG CHUYÊN CẦN</th>
+              <th>THƯỞNG DOANH SỐ</th>
+              <th>SỐ GIỜ ĐỨNG CA ĐỘC LẬP</th>
+              <th>LƯƠNG TỔNG</th>
+              <th>GIỮ LƯƠNG</th>
+              <th>HOÀN LƯƠNG</th>
+              <th>THỰC NHẬN</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+      </tbody>
+      </table>
+    </div>
+  </body>
+  
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script>
+    function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const errorMessageDiv = document.getElementById("errorMessage");
+      const tableContainer = document.getElementById("tableContainer");
+      const validCredentials = basketStore.get('u');
+      let isValid = false;
+      for (let i = 0; i < validCredentials.length; i++) {
+        if (validCredentials[i][0] === username && validCredentials[i][1] === password) {
+          isValid = true;
+          errorMessageDiv.innerHTML = "";
+          break;
+        }
+      }
+
+      if (!isValid) {
+        errorMessageDiv.innerHTML = "Incorrect username or password. Please try again.";
+      } else {
+        basketStore.set('l', username);
+        document.getElementById("lc").style.display = "none";
+        tableContainer.style.display = "block";
+        loadData();
+      }
+    }
+    function createPrivateStore() {
+      let privateStore = {};
+
+      return {
+        get(key) {
+            if (key in privateStore) {
+              return privateStore[key];
+            } else {
+              return undefined;
+            }
+        },
+        set(key, value) {
+          privateStore[key] = value;
+        },
+        has(key) {
+          return key in privateStore;
+        },
+        delete(key) {
+          if (key in privateStore) {
+              delete privateStore[key];
+              return true;
+          }
+          return false;
+        },
+      };
+    }
+
+    const basketStore = createPrivateStore();
+    const sheetId = '1KOF8JY1GiK6BL_8xOGedgQsL7PX3GSENyXMV7wFNJqo';
+    const apiKey = 'AIzaSyBkTg7GkgsWeVziv3NITJ2lLXl5_j6qp2Y';
+    const rangeBL = 'BASKET_BẢNG LƯƠNG!A3:L100';
+    const rangeDB = 'BASKET_DATABASE!B2:C22';
+    const urlBL = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${rangeBL}?key=${apiKey}`;
+    const urlDB = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${rangeDB}?key=${apiKey}`;
+
+    fetch(urlDB)
+      .then(response => response.json())
+      .then(data => {
+        basketStore.set('u', data.values)
+      })
+      .catch(error => console.error('Error:', error));
+
+    function loadData() {
+      const username = basketStore.get('l');
+      if (!username) {
+        return;
+      }
+        
+      fetch(urlBL)
+        .then(response => response.json())
+        .then(data => {
+          basketStore.set('bl', data.values)
+          populateTable();
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    function populateTable() {
+      const perData = basketStore.get('bl');
+      const username = basketStore.get('l');
+      const tableBody = document.getElementById("tableBody");
+      perData.filter(row => row[1] === username).forEach(row => {
+          const tr = document.createElement("tr");
+          row.forEach(cell => {
+              const td = document.createElement("td");
+              td.textContent = cell;
+              // td.contentEditable = true;
+              tr.appendChild(td);
+          });
+
+          tableBody.appendChild(tr);
+      });
+    }
+
+  </script>
 </html>
